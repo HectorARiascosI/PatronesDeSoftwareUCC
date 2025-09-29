@@ -1,4 +1,4 @@
-import { FaPlay, FaPause, FaStepForward, FaStepBackward } from "react-icons/fa";
+import { FaPlay, FaPause, FaStepForward, FaStepBackward, FaRandom } from "react-icons/fa";
 
 interface Props {
   isPlaying: boolean;
@@ -8,9 +8,21 @@ interface Props {
   currentTime: number;
   duration: number;
   onSeek: (time: number) => void;
+  isShuffle?: boolean;                 // nuevo prop
+  onToggleShuffle?: () => void;        // nuevo prop
 }
 
-export default function Controls({ isPlaying, onPlayPause, onNext, onPrev, currentTime, duration, onSeek }: Props) {
+export default function Controls({
+  isPlaying,
+  onPlayPause,
+  onNext,
+  onPrev,
+  currentTime,
+  duration,
+  onSeek,
+  isShuffle = false,
+  onToggleShuffle
+}: Props) {
   function formatTime(sec: number) {
     if (!sec || isNaN(sec)) return "0:00";
     const m = Math.floor(sec / 60);
@@ -24,6 +36,16 @@ export default function Controls({ isPlaying, onPlayPause, onNext, onPrev, curre
         <button className="btn-prev" onClick={onPrev}><FaStepBackward/></button>
         <button className="btn-play" onClick={onPlayPause}>{isPlaying ? <FaPause/> : <FaPlay/>}</button>
         <button className="btn-next" onClick={onNext}><FaStepForward/></button>
+        {onToggleShuffle && (
+          <button
+            className="btn-shuffle"
+            onClick={onToggleShuffle}
+            style={{ color: isShuffle ? "#f0e68c" : "#e0b84a" }}
+            title="Reproducción aleatoria"
+          >
+            <FaRandom />
+          </button>
+        )}
       </div>
       <div style={{display:"flex",alignItems:"center",gap:8,width:"100%"}}>
         <span style={{fontSize:12}}>{formatTime(currentTime)}</span>

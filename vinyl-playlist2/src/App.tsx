@@ -1,26 +1,33 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import "./index.css";
 import type { SongMeta } from "./types";
 import { useId3Resources } from "./hooks/useId3";
-import AudioPlayer from "./components/AudioPlayer";
 import Controls from "./components/Controls";
 import PlaylistQueue from "./components/PlaylistQueue";
 import VinylDisc from "./components/VinylDisc";
+import { DoublyLinkedList } from "./utils/DoublyLinkedList";
 
 function App() {
   const publicFiles = useMemo(() => [], []);
   const loaded = useId3Resources(publicFiles);
 
+  const playlistList = useMemo(() => new DoublyLinkedList<SongMeta>(), []);
   const [playlist, setPlaylist] = useState<SongMeta[]>([]);
-  useEffect(() => {
-    if (loaded.length && playlist.length === 0) setPlaylist(loaded);
-  }, [loaded]);
 
   const [currentId, setCurrentId] = useState<string | undefined>(undefined);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
-  const [seekTime, setSeekTime] = useState(-1);
+  const [isShuffle, setIsShuffle] = useState(false);
+
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    if (loaded.length && playlist.length === 0) {
+      loaded.forEach(song => playlistList.append(song));
+      setPlaylist(playlistList.toArray());
+    }
+  }, [loaded]);
 
   const currentIndex = Math.max(0, playlist.findIndex(s => s.id === currentId));
   const currentSong = playlist[currentIndex];
@@ -31,6 +38,13 @@ function App() {
     }
   }, [playlist, currentSong]);
 
+  useEffect(() => {
+    if (audioRef.current) {
+      if (isPlaying) audioRef.current.play();
+      else audioRef.current.pause();
+    }
+  }, [isPlaying, currentSong]);
+
   function handleSelect(id: string) {
     setCurrentId(id);
     setIsPlaying(true);
@@ -38,11 +52,13 @@ function App() {
   }
 
   function handleRemove(id: string) {
-    const idx = playlist.findIndex((p) => p.id === id);
-    const nxt = playlist.filter((p) => p.id !== id);
-    setPlaylist(nxt);
+    playlistList.remove(s => s.id === id);
+    const newArray = playlistList.toArray();
+    setPlaylist(newArray);
+
     if (id === currentId) {
-      const newCurrent = nxt[idx] ?? nxt[idx - 1] ?? nxt[0];
+      const idx = newArray.findIndex(s => s.id === id);
+      const newCurrent = newArray[idx] ?? newArray[idx - 1] ?? newArray[0];
       setCurrentId(newCurrent?.id);
       setIsPlaying(Boolean(newCurrent));
     }
@@ -50,16 +66,26 @@ function App() {
 
   function handleNext() {
     if (!playlist.length) return;
-    const index = playlist.findIndex(s => s.id === currentId);
-    const nextIndex = (index + 1) % playlist.length;
+    let nextIndex;
+    if (isShuffle) {
+      nextIndex = Math.floor(Math.random() * playlist.length);
+    } else {
+      const index = playlist.findIndex(s => s.id === currentId);
+      nextIndex = (index + 1) % playlist.length;
+    }
     setCurrentId(playlist[nextIndex].id);
     setIsPlaying(true);
   }
 
   function handlePrev() {
     if (!playlist.length) return;
-    const index = playlist.findIndex(s => s.id === currentId);
-    const prevIndex = (index - 1 + playlist.length) % playlist.length;
+    let prevIndex;
+    if (isShuffle) {
+      prevIndex = Math.floor(Math.random() * playlist.length);
+    } else {
+      const index = playlist.findIndex(s => s.id === currentId);
+      prevIndex = (index - 1 + playlist.length) % playlist.length;
+    }
     setCurrentId(playlist[prevIndex].id);
     setIsPlaying(true);
   }
@@ -67,6 +93,7 @@ function App() {
   async function handleUpload(files: FileList | null) {
     if (!files?.length) return;
     const jsmediatags = (await import("jsmediatags")).default;
+
     for (const file of Array.from(files)) {
       await new Promise<void>((resolve) => {
         jsmediatags.read(file, {
@@ -86,7 +113,8 @@ function App() {
               cover: picture,
               file: URL.createObjectURL(file)
             };
-            setPlaylist(prev => [...prev, obj]);
+            playlistList.append(obj);
+            setPlaylist(playlistList.toArray());
             resolve();
           },
           onError: () => {
@@ -96,7 +124,8 @@ function App() {
               artist: "Artista desconocido",
               file: URL.createObjectURL(file)
             };
-            setPlaylist(prev => [...prev, obj]);
+            playlistList.append(obj);
+            setPlaylist(playlistList.toArray());
             resolve();
           }
         });
@@ -106,17 +135,24 @@ function App() {
 
   return (
     <div className="app">
-      {/* ==== Botella flotante ==== */}
       <img src="/assets/whisky-bottle.png" className="bottle" alt="Botella de whisky" />
-        
-      {/* ==== Columna izquierda: disco + controles + upload ==== */}
+
+      <audio
+        ref={audioRef}
+        key={currentSong?.id}
+        src={currentSong?.file}
+        onTimeUpdate={(e) => setCurrentTime(e.currentTarget.currentTime)}
+        onLoadedMetadata={(e) => setDuration(e.currentTarget.duration)}
+        onEnded={handleNext} // reproduce siguiente automáticamente
+      />
+
       <div style={{
         flex:1,
         maxWidth:540,
         display:"flex",
         flexDirection:"column",
         alignItems:"center",
-        gap:28  // aumenta el espacio entre cada elemento automáticamente
+        gap:28
       }}>
         <VinylDisc cover={currentSong?.cover} isPlaying={isPlaying} />
 
@@ -136,7 +172,12 @@ function App() {
           onPrev={handlePrev}
           currentTime={currentTime}
           duration={duration}
-          onSeek={(t) => setSeekTime(t)}
+          onSeek={(t) => {
+            if (audioRef.current) audioRef.current.currentTime = t;
+            setCurrentTime(t);
+          }}
+          isShuffle={isShuffle}               // nuevo
+          onToggleShuffle={() => setIsShuffle(s => !s)} // nuevo
         />
 
         <div style={{
@@ -144,7 +185,7 @@ function App() {
           display:"flex",
           gap:12,
           justifyContent:"center",
-          marginTop:12 // un pequeño extra para separar del control
+          marginTop:12
         }}>
           <input
             aria-label="upload"
@@ -154,29 +195,30 @@ function App() {
             multiple
             onChange={(e)=>handleUpload(e.target.files)}
           />
-          <button className="btn" onClick={()=>{ setPlaylist([]); setCurrentId(undefined); setIsPlaying(false); }}>
+          <button className="btn" onClick={() => {
+            playlistList.head = playlistList.tail = null;
+            playlistList.length = 0;
+            setPlaylist([]);
+            setCurrentId(undefined);
+            setIsPlaying(false);
+          }}>
             Limpiar
           </button>
         </div>
-
-        <AudioPlayer
-          song={currentSong}
-          isPlaying={isPlaying}
-          onEnded={handleNext}
-          onTimeUpdate={(time) => setCurrentTime(time)}
-          seekTime={seekTime}
-          onDuration={(d) => setDuration(d)}
-        />
       </div>
 
-      {/* ==== Columna derecha: playlist ==== */}
       <div style={{width:360}}>
         <PlaylistQueue
           songs={playlist}
           currentId={currentSong?.id}
           onSelect={handleSelect}
           onRemove={handleRemove}
-          onReorder={(newOrder: SongMeta[]) => setPlaylist(newOrder)}
+          onReorder={(newOrder: SongMeta[]) => {
+            playlistList.head = playlistList.tail = null;
+            playlistList.length = 0;
+            newOrder.forEach(song => playlistList.append(song));
+            setPlaylist(playlistList.toArray());
+          }}
         />
       </div>
     </div>
