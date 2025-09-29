@@ -21,9 +21,9 @@ export default function Controls({ isPlaying, onPlayPause, onNext, onPrev, curre
   return (
     <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:8}}>
       <div style={{display:"flex",gap:20,alignItems:"center"}}>
-        <button onClick={onPrev}><FaStepBackward/></button>
-        <button onClick={onPlayPause}>{isPlaying ? <FaPause/> : <FaPlay/>}</button>
-        <button onClick={onNext}><FaStepForward/></button>
+        <button className="btn-prev" onClick={onPrev}><FaStepBackward/></button>
+        <button className="btn-play" onClick={onPlayPause}>{isPlaying ? <FaPause/> : <FaPlay/>}</button>
+        <button className="btn-next" onClick={onNext}><FaStepForward/></button>
       </div>
       <div style={{display:"flex",alignItems:"center",gap:8,width:"100%"}}>
         <span style={{fontSize:12}}>{formatTime(currentTime)}</span>

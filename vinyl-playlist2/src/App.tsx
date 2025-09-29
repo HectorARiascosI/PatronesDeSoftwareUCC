@@ -8,7 +8,6 @@ import PlaylistQueue from "./components/PlaylistQueue";
 import VinylDisc from "./components/VinylDisc";
 
 function App() {
-  // Archivos base (puedes dejarlos vacíos si quieres que arranque sin canciones)
   const publicFiles = useMemo(() => [], []);
   const loaded = useId3Resources(publicFiles);
 
@@ -106,56 +105,78 @@ function App() {
   }
 
   return (
-    <div className="app" style={{display:"flex",gap:20,padding:20,alignItems:"flex-start",fontFamily:"Inter, system-ui, Arial"}}>
-      <div style={{flex:1, maxWidth:540}}>
-        <div style={{display:"flex",flexDirection:"column",alignItems:"center"}}>
-          <div style={{marginBottom:12}}>
-            <VinylDisc cover={currentSong?.cover} isPlaying={isPlaying}/>
-          </div>
-          <div style={{textAlign:"center"}}>
-            { currentSong ? (
-              <>
-                <div style={{fontWeight:700,fontSize:18}}>{currentSong.title}</div>
-                <div style={{color:"#777"}}>{currentSong.artist} · {currentSong.album ?? ""}</div>
-              </>
-            ) : <div style={{fontWeight:700,fontSize:18}}>No hay canción</div> }
-          </div>
+    <div className="app">
+      {/* ==== Botella flotante ==== */}
+      <img src="/assets/whisky-bottle.png" className="bottle" alt="Botella de whisky" />
+        
+      {/* ==== Columna izquierda: disco + controles + upload ==== */}
+      <div style={{
+        flex:1,
+        maxWidth:540,
+        display:"flex",
+        flexDirection:"column",
+        alignItems:"center",
+        gap:28  // aumenta el espacio entre cada elemento automáticamente
+      }}>
+        <VinylDisc cover={currentSong?.cover} isPlaying={isPlaying} />
 
-          <div style={{width:"100%", marginTop:16}}>
-            <Controls
-              isPlaying={isPlaying}
-              onPlayPause={() => setIsPlaying(p => !p)}
-              onNext={handleNext}
-              onPrev={handlePrev}
-              currentTime={currentTime}
-              duration={duration}
-              onSeek={(t) => setSeekTime(t)}
-            />
-          </div>
-
-          <div style={{width:"100%", marginTop:12, display:"flex", gap:8, alignItems:"center"}}>
-            <input aria-label="upload" id="upload" type="file" accept="audio/*" multiple onChange={(e)=>handleUpload(e.target.files)} />
-            <button className="btn" onClick={()=>{ setPlaylist([]); setCurrentId(undefined); setIsPlaying(false); }}>Limpiar</button>
-          </div>
-
-          <AudioPlayer
-            song={currentSong}
-            isPlaying={isPlaying}
-            onEnded={handleNext}
-            onTimeUpdate={(time) => setCurrentTime(time)}
-            seekTime={seekTime}
-            onDuration={(d) => setDuration(d)}
-          />
+        <div style={{textAlign:"center", marginTop:12}}>
+          { currentSong ? (
+            <>
+              <div style={{fontWeight:700, fontSize:20, color:"#e0b84a"}}>{currentSong.title}</div>
+              <div style={{fontSize:14, color:"#f0e68c"}}>{currentSong.artist} · {currentSong.album ?? ""}</div>
+            </>
+          ) : <div style={{fontWeight:700, fontSize:20}}>No hay canción</div> }
         </div>
+
+        <Controls
+          isPlaying={isPlaying}
+          onPlayPause={() => setIsPlaying(p => !p)}
+          onNext={handleNext}
+          onPrev={handlePrev}
+          currentTime={currentTime}
+          duration={duration}
+          onSeek={(t) => setSeekTime(t)}
+        />
+
+        <div style={{
+          width:"100%",
+          display:"flex",
+          gap:12,
+          justifyContent:"center",
+          marginTop:12 // un pequeño extra para separar del control
+        }}>
+          <input
+            aria-label="upload"
+            id="upload"
+            type="file"
+            accept="audio/*"
+            multiple
+            onChange={(e)=>handleUpload(e.target.files)}
+          />
+          <button className="btn" onClick={()=>{ setPlaylist([]); setCurrentId(undefined); setIsPlaying(false); }}>
+            Limpiar
+          </button>
+        </div>
+
+        <AudioPlayer
+          song={currentSong}
+          isPlaying={isPlaying}
+          onEnded={handleNext}
+          onTimeUpdate={(time) => setCurrentTime(time)}
+          seekTime={seekTime}
+          onDuration={(d) => setDuration(d)}
+        />
       </div>
 
+      {/* ==== Columna derecha: playlist ==== */}
       <div style={{width:360}}>
         <PlaylistQueue
           songs={playlist}
           currentId={currentSong?.id}
           onSelect={handleSelect}
           onRemove={handleRemove}
-          onReorder={(newOrder) => setPlaylist(newOrder)}
+          onReorder={(newOrder: SongMeta[]) => setPlaylist(newOrder)}
         />
       </div>
     </div>
